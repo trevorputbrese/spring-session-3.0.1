@@ -1,0 +1,106 @@
+plugins {
+	id 'org.antora' version '1.0.0'
+	id 'io.spring.antora.generate-antora-yml' version '0.0.1'
+}
+
+apply plugin: 'io.spring.convention.docs'
+apply plugin: 'io.spring.convention.spring-test'
+
+dependencies {
+	testImplementation project(':spring-session-core')
+	testImplementation project(':spring-session-data-redis')
+//	testImplementation project(':spring-session-hazelcast')
+	testImplementation project(':spring-session-jdbc')
+	testImplementation 'org.springframework:spring-jdbc'
+	testImplementation 'org.springframework:spring-messaging'
+	testImplementation 'org.springframework:spring-webmvc'
+	testImplementation 'org.springframework:spring-websocket'
+	testImplementation 'org.springframework.security:spring-security-config'
+	testImplementation 'org.springframework.security:spring-security-web'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.mockito:mockito-core'
+	testImplementation 'org.mockito:mockito-junit-jupiter'
+	testImplementation 'org.springframework:spring-test'
+	testImplementation 'org.assertj:assertj-core'
+	testImplementation 'com.hazelcast:hazelcast'
+	testImplementation 'io.lettuce:lettuce-core'
+	testImplementation 'jakarta.servlet:jakarta.servlet-api'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+antora {
+	playbook = 'cached-antora-playbook.yml'
+	playbookProvider {
+		repository = 'spring-projects/spring-session'
+		branch = 'docs-build'
+		path = 'lib/antora/templates/per-branch-antora-playbook.yml'
+		checkLocalBranch = true
+	}
+	options = [clean: true, fetch: !project.gradle.startParameter.offline, stacktrace: true]
+}
+
+tasks.named("generateAntoraYml") {
+	asciidocAttributes = project.provider( { generateAttributes() } )
+}
+
+def generateAttributes() {
+	def dollar = '$'
+	def ghTag = snapshotBuild ? 'main' : project.version
+	def ghUrl = "https://github.com/spring-projects/spring-session/tree/${ghTag.toString()}"
+	def snapshotBuild = project.version.contains("SNAPSHOT")
+	def milestoneBuild = project.version.contains("-M")
+	def releaseBuild = (!snapshotBuild && !milestoneBuild)
+	def springBootVersion = "2.7.0"
+	def downloadUrl = "https://github.com/spring-projects/spring-session/archive/${ghTag}.zip"
+	def ghSamplesUrl = "$ghUrl/spring-session-samples/"
+	def samplesDir = "example${dollar}spring-session-samples/"
+	def sessionJdbcMainResourcesDir = "example${dollar.toString()}session-jdbc-main-resources-dir/"
+	def springSessionDataMongoDbDir = "example${dollar.toString()}spring-session-data-mongodb-dir/"
+	def docsTestDir = "example${dollar.toString()}java/"
+	def websocketdocTestDir = "example${dollar.toString()}java/docs/websocket/"
+	def docsTestResourcesDir = "example${dollar.toString()}resources/"
+	def indexdocTests = "example${dollar.toString()}java/docs/IndexDocTests.java"
+
+	return [
+			'download-url': downloadUrl.toString(),
+			'gh-samples-url': ghSamplesUrl.toString(),
+			'samples-dir': samplesDir.toString(),
+			'session-jdbc-main-resources-dir': sessionJdbcMainResourcesDir.toString(),
+			'spring-session-data-mongodb-dir': springSessionDataMongoDbDir.toString(),
+			'docs-test-dir': docsTestDir.toString(),
+			'websocketdoc-test-dir': websocketdocTestDir.toString(),
+			'docs-test-resources-dir': docsTestResourcesDir.toString(),
+			'indexdoc-tests': indexdocTests.toString(),
+			'spring-session-version': project.version,
+			'version-milestone': milestoneBuild,
+			'version-release': releaseBuild,
+			'version-snapshot': snapshotBuild,
+			'spring-boot-version': springBootVersion
+	] + resolvedVersions(project.configurations.testRuntimeClasspath)
+}
+
+sourceSets {
+    test {
+        java {
+            srcDirs = ['modules/ROOT/examples/java']
+        }
+        resources {
+            srcDirs = ['modules/ROOT/examples/resources']
+        }
+    }
+}
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/release' }
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/snapshot' }
+}
+
+def resolvedVersions(Configuration configuration) {
+    return configuration.resolvedConfiguration
+                .resolvedArtifacts
+                .collectEntries { [(it.name + "-version"): it.moduleVersion.id.version] }
+
+}
